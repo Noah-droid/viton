@@ -136,7 +136,7 @@
 
             try {
                 // Send images to backend
-                const response = await fetch("http://127.0.0.1:8000/api/try-on/", {
+                const response = await fetch("https://dripfit-be.onrender.com/api/try-on/", {
                     method: "POST",
                     body: formData
                 });
@@ -162,7 +162,7 @@
 
             const interval = setInterval(async () => {
                 try {
-                    const response = await fetch(`http://127.0.0.1:8000/api/try-on/?id=${tryonId}`);
+                    const response = await fetch(`https://dripfit-be.onrender.com/api/try-on/?id=${tryonId}`);
                     const result = await response.json();
 
                     if (response.ok && result.status === "completed" && result.output_image_url) {
