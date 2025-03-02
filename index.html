@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Virtual Try-On</title>
+    <style>
+        /* General Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background: #f7f8fc;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: #fff;
+            padding: 25px;
+            width: 400px;
+            border-radius: 12px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h2 {
+            margin-bottom: 15px;
+            color: #444;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: 600;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        input:focus, select:focus {
+            border-color: #007bff;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #007bff;
+            color: #fff;
+            border: none;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        #loading-spinner {
+            display: none;
+            font-size: 14px;
+            font-weight: bold;
+            color: #007bff;
+            margin-top: 15px;
+        }
+
+        #output {
+            margin-top: 20px;
+        }
+
+        #output img {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>AI Virtual Try-On</h2>
+
+        <form id="tryon-form">
+            <label>Upload Person Image:</label>
+            <input type="file" id="person_image" accept="image/*" required>
+
+            <label>Upload Garment Image:</label>
+            <input type="file" id="garment_image" accept="image/*" required>
+
+            <label>Category:</label>
+            <select id="category">
+                <option value="tops">Tops</option>
+                <option value="pants">Pants</option>
+                <option value="shoes">Shoes</option>
+            </select>
+
+            <button type="submit">Try On</button>
+        </form>
+
+        <div id="loading-spinner">Processing... Please wait.</div>
+        <div id="output"></div>
+    </div>
+
+    <script>
+        document.getElementById("tryon-form").addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const formData = new FormData();
+            formData.append("person_image", document.getElementById("person_image").files[0]);
+            formData.append("garment_image", document.getElementById("garment_image").files[0]);
+            formData.append("category", document.getElementById("category").value);
+
+            const loadingSpinner = document.getElementById("loading-spinner");
+            const outputDiv = document.getElementById("output");
+
+            loadingSpinner.style.display = "block";
+            outputDiv.innerHTML = ""; // Clear previous results
+
+            try {
+                // Send images to backend
+                const response = await fetch("http://127.0.0.1:8000/api/try-on/", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const result = await response.json();
+                loadingSpinner.style.display = "none";
+
+                if (response.ok && result.id) {
+                    outputDiv.innerHTML = `<p>Processing... Waiting for results.</p>`;
+                    pollForResult(result.id);
+                } else {
+                    outputDiv.innerHTML = `<p style="color:red;">Error: ${result.error || "Unknown error"}</p>`;
+                }
+            } catch (error) {
+                loadingSpinner.style.display = "none";
+                outputDiv.innerHTML = `<p style="color:red;">Request failed: ${error.message}</p>`;
+            }
+        });
+
+        // Polling function to check status
+        async function pollForResult(tryonId) {
+            const outputDiv = document.getElementById("output");
+
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch(`http://127.0.0.1:8000/api/try-on/?id=${tryonId}`);
+                    const result = await response.json();
+
+                    if (response.ok && result.status === "completed" && result.output_image_url) {
+                        clearInterval(interval); // Stop polling
+                        outputDiv.innerHTML = `<h3>Try-On Result</h3>
+                            <img src="${result.output_image_url}" alt="Try-On Result">`;
+                    } else {
+                        outputDiv.innerHTML = `<p>Status: Processing...</p>`;
+                    }
+                } catch (error) {
+                    console.error("Polling failed:", error);
+                    clearInterval(interval);
+                    outputDiv.innerHTML = `<p>Error fetching status.</p>`;
+                }
+            }, 5000);  // Poll every 5 seconds
+        }
+    </script>
+
+</body>
+</html>
